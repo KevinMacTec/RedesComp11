@@ -1,4 +1,4 @@
-from jsonrpc_redes_profes import Server
+from jsonrpc_redes import Server
 import threading
 import time
 import sys
