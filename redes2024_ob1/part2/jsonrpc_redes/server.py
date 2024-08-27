@@ -1,66 +1,84 @@
-#servidor
-import client_server
-import threading
-import socket
+from socket import *
+import types
+import json
 
 class Server:
-    def __init__(self, host, port):
-        self._host = host
-        self._port = port
-        self._methods = {}
-        self._clients = []
-        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server_socket.bind((self.host, self.port))
-        self._server_socket.listen(1)
-        print(f"Servidor iniciado en {self.host}:{self.port}")
+    def __init__(self, tuple_host_port):
+        self.host_port = tuple_host_port
+        self.methods = {}
+        self.server_skt = socket(AF_INET, SOCK_STREAM)
+        self.server_skt.bind(self.host_port)
+        self.server_skt.listen(1)
 
     def print(self):
-        print("Servidor ", self.host,":",self.port)
-
-    def add_method(self, *args):
-        if not args:
-            raise ValueError("Debe proporcionar al menos el nombre del metodo.")
+        print("Servidor ", self.host_port[0],":",self.host_port[1])
+    
+    def add_method(self, method, *method_call_name):
+        if isinstance(method, types.FunctionType):
+            if method_call_name:
+                key = method_call_name[0]
+            else:
+                key = method.__name__
+            self.methods[key] = method
+        else: 
+            raise TypeError('method debe ser una funcion')
         
-        function_name = args[0]
-        parameters = args[1:]
-        self.methods[function_name] = parameters
-
+    def serve(self):
+        while(True):
+            conn, addr = self.server_skt.accept()
+            req_in = conn.recv(1024).decode()
+            msg = json.loads(req_in)
+            notif, rslt = self.__rpc_handler(msg)
+            if (not notif):
+                res_out = json.dumps(rslt)
+                conn.send(res_out.encode())
+            conn.close()
+    
     def shutdown(self):
-        self.server_socket.close()
+        self.server_skt.close()
         self.print()
         print(", cerro.")
 
-    def serve(self):
-        while True:
-            try:
-                client_socket, client_address = self._server_socket.accept()
-                print("Conexión establecida con ", client_address)
-                thread = threading.Thread(target=self.accept_connection, args=client_socket)
-                thread.start()
-            except Exception as err:
-                print("Error al conectar ")
-                self.print()
-                print(" con ")
-                print(client_address)
+    def __rpc_handler(self, msg):
+        print(f'Mensaje: {msg}')
+        if ('id' in msg.keys()):
+            method = msg.get("method")
+            params = msg.get("params")
+            req_id = msg.get("id")
+            print('Tipo :', type(params), params)
+            if isinstance(params, dict):
+                params = list(params.values())  # Convertir los valores del diccionario en una lista
+            print('*params :', *params)
+            if method in self.methods:
+                #-32700	Parse error	Invalid JSON was received by the server.
+                # -32600	Invalid Request	The JSON sent is not a valid Request object.
+                # -32602	Invalid params	Invalid method parameter(s).
+                # -32000 to -32099
+                try:
+                    result = self.methods[method](*params)
+                    response = {
+                        "jsonrpc": "2.0",
+                        "result": result,
+                        "id": req_id
+                    }
+                except Exception as e:
+                    response = {
+                        "jsonrpc": "2.0",
+                        "error": {"code": -32603, "message": str(e)},
+                        "id": req_id
+                    }
+            else:
+                response = {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32601, "message": "Method not found"},
+                    "id": req_id
+                }
+            print('Respuesta: ', response)
+            return (False, response)
+        else:
+            return (True, None)
 
-    def accept_connection(self, client_socket):
-        try:
-            #hay que ver como se comunica entre servidor y cliente
-            conect = False
-        except Exception:
-            client_socket.close()
-
-    def server_sending(client,message_to_send):
-        client_server.send_all(client,message_to_send)
-
-    def connect(self,skt):
-        while True:
-            try:
-                client, _ = skt.accept()
-                thread = threading.Thread(target=self.accept_connection, args=client)
-                thread.start()
-            except Exception:
-                print("Error al conectar con TCP")
 
 
-        
+    
+  

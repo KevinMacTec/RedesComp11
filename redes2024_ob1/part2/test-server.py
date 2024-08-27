@@ -7,7 +7,8 @@ def test_server():
     # Este método es un ejemplo de cómo se puede usar el servidor.
     # Se inicia un servidor en el puerto 8080 y se añaden dos métodos
     
-    host, port = '', 8080
+    host, port = 'localhost', 8080
+    # host, port = '', 8080
     
     def echo(message):
         return message
