@@ -6,7 +6,7 @@ import sys
 def server():
     # Servidor métodos de numeros
     
-    host, port = 'localhost', 8080
+    host, port = '200.0.0.10', 8080
     
     def substract(a, *b):
         return a - sum(list(b))

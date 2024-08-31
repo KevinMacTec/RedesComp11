@@ -7,7 +7,6 @@ class Client:
     def __init__(self, address, port):
         self.address = address
         self.port = port
-        self.next_id = 0
 
     def __getattr__(self, name):
         def rpc_trigger(*args, **kwargs):

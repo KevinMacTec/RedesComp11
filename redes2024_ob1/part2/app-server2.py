@@ -6,7 +6,7 @@ import sys
 def server():
     # Servidor metodos de strings
     
-    host, port = 'localhost', 8081
+    host, port = '200.100.0.15', 8081
     
     def concat_strings(*args):
         total = ''

@@ -8,8 +8,8 @@ def test_client():
     print('Iniciando pruebas de casos sin errores.')
 
     
-    connS1 = connect('localhost', 8080)
-    connS2 = connect('localhost', 8081)
+    connS1 = connect('200.0.0.10', 8080)
+    connS2 = connect('200.100.0.15', 8081)
 
     result = connS1.substract(20,10,3,2,1)
     assert result == (20-10-3-2-1)
