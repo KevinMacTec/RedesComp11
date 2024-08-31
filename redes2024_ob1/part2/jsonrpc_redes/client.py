@@ -1,6 +1,7 @@
 #Cliente
 from socket import *
 import json
+import uuid
 
 class Client:
     def __init__(self, address, port):
@@ -10,23 +11,24 @@ class Client:
 
     def __getattr__(self, name):
         def rpc_trigger(*args, **kwargs):
-            #print(f"Llamada a método remoto: {name} con argumentos: {args} y argumentos keyword: {kwargs}")
+            print(f"Llamada a método remoto: {name} con argumentos: {args} y argumentos keyword: {kwargs}")
             notif = False
             if ('notify' in kwargs.keys() and kwargs['notify']):
                 notif = True
                 del kwargs['notify']
-            if (args and not kwargs):
-                params = list(args)
-            elif (kwargs and not args):
+            if kwargs:
                 params = kwargs
+                # Mezcla args y kwargs
+                if args:
+                    error = Exception()
+                    error.code = -32600
+                    error.message = 'Invalid Request'
+                    raise error
             else:
-                error = Exception()
-                error.code = 0
-                error.message = 'prueba'
-                raise error
+                params = list(args)
             msg = {"jsonrpc": "2.0", "method": name, "params": params }
             if not notif:
-                msg["id"] = self.get_id()
+                msg["id"] = str(uuid.uuid4())
             req_out = json.dumps(msg)
             client = socket(AF_INET, SOCK_STREAM)
             client.connect((self.address, self.port))
@@ -45,10 +47,6 @@ class Client:
                 client.close()
         return rpc_trigger
     
-    def get_id(self):
-        id = self.next_id
-        self.next_id += 1
-        return id 
 
 def connect(adress, port):
     conn = Client(adress, port)

@@ -4,32 +4,27 @@ import time
 import sys
 
 def server():
-    # Este método es un ejemplo de cómo se puede usar el servidor.
-    # Se inicia un servidor en el puerto 8080 y se añaden dos métodos
+    # Servidor métodos de numeros
     
     host, port = 'localhost', 8080
-    # host, port = '', 8080
     
-    def substract(a, b):
-        return a - b
+    def substract(a, *b):
+        return a - sum(list(b))
         
     def divide(a, b):
         return a / b
 
-    def concat_strings(*args):
-        total = ''
-        for arg in args:
-            total += arg
-        return total
-    
-    def repeat_string(string, cant):
-        return str(string)*cant
+    def power_of(base , exp):
+        return pow(base, exp)
+
+    def n_root(base, n):
+        return pow(base, 1/n)
         
     server = Server((host, port))
     server.add_method(substract)
     server.add_method(divide)
-    server.add_method(concat_strings, 'concat_str')
-    server.add_method(repeat_string)
+    server.add_method(power_of, "pow")
+    server.add_method(n_root, "nrt")
     server_thread = threading.Thread(target=server.serve)
     server_thread.daemon = True
     server_thread.start()

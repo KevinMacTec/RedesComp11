@@ -9,9 +9,6 @@ class Server:
         self.server_skt = socket(AF_INET, SOCK_STREAM)
         self.server_skt.bind(self.host_port)
         self.server_skt.listen(1)
-
-    def print(self):
-        print("Servidor ", self.host_port[0],":",self.host_port[1])
     
     def add_method(self, method, *method_call_name):
         if isinstance(method, types.FunctionType):
@@ -27,8 +24,7 @@ class Server:
         while(True):
             conn, addr = self.server_skt.accept()
             req_in = conn.recv(1024).decode()
-            msg = json.loads(req_in)
-            notif, rslt = self.__rpc_handler(msg)
+            notif, rslt = self.__rpc_handler(req_in)
             if (not notif):
                 res_out = json.dumps(rslt)
                 conn.send(res_out.encode())
@@ -36,37 +32,68 @@ class Server:
     
     def shutdown(self):
         self.server_skt.close()
-        self.print()
-        print(", cerro.")
+        print(f"Servidor {self.host_port[0]}:{self.host_port[1]} apagado.")
 
-    def __rpc_handler(self, msg):
-        print(f'Mensaje: {msg}')
+    def __rpc_handler(self, req):
+        # Control JSON es parseable
+        try:
+            msg = json.loads(req)
+        except Exception:
+            response = {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32700, "message": "Parse error"},
+                    "id": None
+                }
+            print('Respuesta: ', response)
+            return (False, response)
+        print(f'Solicitud: {msg}')
         if ('id' in msg.keys()):
-            method = msg.get("method")
-            params = msg.get("params")
-            req_id = msg.get("id")
-            print('Tipo :', type(params), params)
-            if isinstance(params, dict):
-                params = list(params.values())  # Convertir los valores del diccionario en una lista
-            print('*params :', *params)
+        # Control estructura válida (solo si no es notificacion)
+            try:
+                if msg.get("jsonrpc") != "2.0":
+                    raise Exception()
+                method = msg.get("method")
+                if not isinstance(method, str):
+                    raise Exception()
+                params = msg.get("params")
+                if not(isinstance(params, list) or isinstance(params, dict)):
+                    raise Exception()
+                req_id = msg.get("id")
+            except Exception:
+                response = {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32600, "message": "Invalid Request"},
+                    "id": req_id
+                }
+                print('Respuesta: ', response)
+                return (False, response)
+            # Request válido
+            # Control existe método
             if method in self.methods:
-                #-32700	Parse error	Invalid JSON was received by the server.
-                # -32600	Invalid Request	The JSON sent is not a valid Request object.
-                # -32602	Invalid params	Invalid method parameter(s).
-                # -32000 to -32099
+                # Control ejecucion correcta del metodo
                 try:
-                    result = self.methods[method](*params)
+                    if isinstance(params, dict):
+                        result = self.methods[method](**params)
+                    else:
+                        result = self.methods[method](*params)
                     response = {
                         "jsonrpc": "2.0",
                         "result": result,
                         "id": req_id
                     }
                 except Exception as e:
-                    response = {
-                        "jsonrpc": "2.0",
-                        "error": {"code": -32603, "message": str(e)},
-                        "id": req_id
-                    }
+                    if isinstance(e, TypeError):
+                        response = {
+                            "jsonrpc": "2.0",
+                            "error": {"code": -32602, "message": "Invalid params"},
+                            "id": req_id
+                        }
+                    else:
+                        response = {
+                            "jsonrpc": "2.0",
+                            "error": {"code": -32603, "message": "Internal error"},
+                            "id": req_id
+                        }
             else:
                 response = {
                     "jsonrpc": "2.0",
