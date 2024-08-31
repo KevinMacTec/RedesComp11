@@ -22,17 +22,21 @@ class Server:
         
     def serve(self):
         while(True):
-            conn, addr = self.server_skt.accept()
-            req_in = conn.recv(1024).decode()
-            notif, rslt = self.__rpc_handler(req_in)
-            if (not notif):
-                res_out = json.dumps(rslt)
-                conn.send(res_out.encode())
-            conn.close()
+            try:
+                conn, addr = self.server_skt.accept()
+                req_in = self._receive_data(conn)
+                notif, rslt = self.__rpc_handler(req_in)
+                if not notif:
+                    res_out = json.dumps(rslt)
+                    conn.send(res_out.encode())
+            except Exception as e:
+                print("Error en la conexión: ",e)
+            finally:
+                conn.close()
     
     def shutdown(self):
         self.server_skt.close()
-        print(f"Servidor {self.host_port[0]}:{self.host_port[1]} apagado.")
+        print("Servidor ",self.host_port[0], ":",self.host_port[1]," apagado.")
 
     def __rpc_handler(self, req):
         # Control JSON es parseable
@@ -44,9 +48,9 @@ class Server:
                     "error": {"code": -32700, "message": "Parse error"},
                     "id": None
                 }
-            print('Respuesta: ', response)
+            print("Respuesta: ", response)
             return (False, response)
-        print(f'Solicitud: {msg}')
+        print("Solicitud: ",msg)
         if ('id' in msg.keys()):
         # Control estructura válida (solo si no es notificacion)
             try:
@@ -65,7 +69,7 @@ class Server:
                     "error": {"code": -32600, "message": "Invalid Request"},
                     "id": req_id
                 }
-                print('Respuesta: ', response)
+                print("Respuesta: ", response)
                 return (False, response)
             # Request válido
             # Control existe método
