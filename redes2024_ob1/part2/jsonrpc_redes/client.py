@@ -31,7 +31,7 @@ class Client:
             req_out = json.dumps(msg)
             client = socket(AF_INET, SOCK_STREAM)
             client.connect((self.address, self.port))
-            client.send(req_out.encode())
+            client.sendall(req_out.encode())
             if not notif:
                 res_in = client.recv(1024)
                 rslt = json.loads(res_in.decode())

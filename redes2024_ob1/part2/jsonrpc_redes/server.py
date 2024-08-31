@@ -24,11 +24,11 @@ class Server:
         while(True):
             try:
                 conn, addr = self.server_skt.accept()
-                req_in = self._receive_data(conn)
+                req_in = conn.recv(1024).decode()
                 notif, rslt = self.__rpc_handler(req_in)
                 if not notif:
                     res_out = json.dumps(rslt)
-                    conn.send(res_out.encode())
+                    conn.sendall(res_out.encode())
             except Exception as e:
                 print("Error en la conexión: ",e)
             finally:
