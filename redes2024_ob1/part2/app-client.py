@@ -60,7 +60,7 @@ def test_client():
     try:
         connS1.substract()
     except Exception as e:
-        print('Llamada incorrecta sin parámetros. Genera excepción necesaria.')
+        print('Llamada sin parámetros. Genera excepción necesaria.')
         print(e.code, e.message)
     else:
         print('ERROR: No lanzó excepción.')
@@ -68,15 +68,15 @@ def test_client():
     try:
         connS2.substract(5, 6)
     except Exception as e:
-        print('Llamada a método inexistente en servidor 2. Genera excepción necesaria.')
+        print('Llamada a método inexistente en servidor. Genera excepción necesaria.')
         print(e.code, e.message)
     else:
         print('ERROR: No lanzó excepción.')
 
     try:
-        connS2.repeat_string('a', 'b', 'c')
+        connS2.repeat_string('a')
     except Exception as e:
-        print('Llamada incorrecta genera excepción interna del servidor.')
+        print('Llamada con menos parametros de los requeridos. Genera excepción interna del servidor.')
         print(e.code, e.message)
     else:
         print('ERROR: No lanzó excepción.')
@@ -84,7 +84,7 @@ def test_client():
     try:
         connS2.truncate_string('hola', pos=2)
     except Exception as e:
-        print('Llamada incorrecta genera excepción en el cliente.')
+        print('Llamada mezclando args y kwargs. Genera excepción en el cliente.')
         print(e)
     else:
         print('ERROR: No lanzó excepción.')

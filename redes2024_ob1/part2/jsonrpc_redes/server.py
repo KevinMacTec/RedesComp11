@@ -80,6 +80,9 @@ class Server:
                         result = self.methods[method](**params)
                     else:
                         result = self.methods[method](*params)
+                    # Si multiples resultados transformo a lista
+                    if (isinstance(result, tuple)):
+                        result = list(result)
                     response = {
                         "jsonrpc": "2.0",
                         "result": result,
@@ -108,8 +111,3 @@ class Server:
             return (False, response)
         else:
             return (True, None)
-
-
-
-    
-  
