@@ -9,7 +9,7 @@ def test_client():
     print('Iniciando pruebas de casos sin errores.')
 
 
-    connS3 = connect('200.100.0.15', 8081)
+    connS3 = connect('200.100.0.15', 8080)
 
     result = connS3.get_pi()
     assert result == (pi)

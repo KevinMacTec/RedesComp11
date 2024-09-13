@@ -8,7 +8,7 @@ class Server:
         self.methods = {}
         self.server_skt = socket(AF_INET, SOCK_STREAM)
         self.server_skt.bind(self.host_port)
-        self.server_skt.listen(1)
+        self.server_skt.listen(3)
     
     def add_method(self, method, *method_call_name):
         if isinstance(method, types.FunctionType):
@@ -24,10 +24,16 @@ class Server:
         while(True):
             try:
                 conn, addr = self.server_skt.accept()
-                req_in = conn.recv(1024).decode()
+                req_in = ''
+                while True:
+                    packet = conn.recv(1024).decode()
+                    req_in += packet
+                    if '\n\n' in req_in:
+                        req_in = str.removesuffix(req_in, '\n\n')
+                        break
                 notif, rslt = self.__rpc_handler(req_in)
                 if not notif:
-                    res_out = json.dumps(rslt)
+                    res_out = json.dumps(rslt) + '\n\n'
                     conn.sendall(res_out.encode())
             except Exception as e:
                 print("Error en la conexión: ",e)
@@ -80,7 +86,6 @@ class Server:
                         result = self.methods[method](**params)
                     else:
                         result = self.methods[method](*params)
-                    # Si multiples resultados transformo a lista
                     if (isinstance(result, tuple)):
                         result = list(result)
                     response = {

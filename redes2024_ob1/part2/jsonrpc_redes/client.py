@@ -28,13 +28,19 @@ class Client:
             msg = {"jsonrpc": "2.0", "method": name, "params": params }
             if not notif:
                 msg["id"] = str(uuid.uuid4())
-            req_out = json.dumps(msg)
+            req_out = json.dumps(msg) + '\n\n'
             client = socket(AF_INET, SOCK_STREAM)
             client.connect((self.address, self.port))
             client.sendall(req_out.encode())
             if not notif:
-                res_in = client.recv(1024)
-                rslt = json.loads(res_in.decode())
+                res_in = ''
+                while True:
+                    packet = client.recv(1024).decode()
+                    res_in += packet
+                    if '\n\n' in res_in:
+                        res_in = str.removesuffix(res_in, '\n\n')
+                        break
+                rslt = json.loads(res_in)
                 if ('error' in rslt.keys()):
                     error = Exception()
                     error.code = rslt['error']['code']
