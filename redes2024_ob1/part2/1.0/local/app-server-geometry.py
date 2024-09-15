@@ -7,7 +7,7 @@ import math
 def server():
     # Servidor metodos de geometria
     
-    host, port = '200.100.0.15', 8080
+    host, port = 'localhost', 8082
     
     def get_pi_value():
         return math.pi

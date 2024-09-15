@@ -1,9 +1,11 @@
 from socket import *
 import types
 import json
+from .utils import valid_count
 
 class Server:
     def __init__(self, tuple_host_port):
+        # Inicializo el socket que escucha peticiones
         self.host_port = tuple_host_port
         self.methods = {}
         self.server_skt = socket(AF_INET, SOCK_STREAM)
@@ -11,6 +13,7 @@ class Server:
         self.server_skt.listen(3)
     
     def add_method(self, method, *method_call_name):
+        # Metodo para agregar metodos a la clase
         if isinstance(method, types.FunctionType):
             if method_call_name:
                 key = method_call_name[0]
@@ -21,22 +24,35 @@ class Server:
             raise TypeError('method debe ser una funcion')
         
     def serve(self):
-        while(True):
+        while True:
             try:
+                # Comienzo procedimiento para aceptar solicitud
                 conn, addr = self.server_skt.accept()
+                # Seteo timeout una vez acepto solicitud
+                conn.settimeout(10)
+                # Recibo hasta que todos los '{' abiertos se cierren con un '}'
                 req_in = ''
+                cant_open = 0
+                cant_close = 0
                 while True:
-                    packet = conn.recv(1024).decode()
+                    packet = conn.recv(4).decode()
+                    cant_open += valid_count(packet, '{')
+                    cant_close += valid_count(packet, '}')
                     req_in += packet
-                    if '\n\n' in req_in:
-                        req_in = str.removesuffix(req_in, '\n\n')
+                    print(req_in)
+                    if cant_open != 0 and cant_open == cant_close:
                         break
+                # Una vez recibido todo el request lo paso al handler 
                 notif, rslt = self.__rpc_handler(req_in)
                 if not notif:
-                    res_out = json.dumps(rslt) + '\n\n'
+                    res_out = json.dumps(rslt)
                     conn.sendall(res_out.encode())
+            except socket.timeout as e:
+            # Manejo timeout de solicitud
+                print('Timeout esperando la solicitud del cliente')
             except Exception as e:
-                print("Error en la conexión: ",e)
+            # Manejo cualquier otra excepcion 
+                print('Error en la conexión: ',e)
             finally:
                 conn.close()
     
