@@ -3,25 +3,28 @@ import threading
 import time
 import sys
 
-def test_server():
-    # Este método es un ejemplo de cómo se puede usar el servidor.
-    # Se inicia un servidor en el puerto 8080 y se añaden dos métodos
+def server():
+    # Servidor métodos de numeros
     
-    host, port = 'localhost', 8080
+    host, port = '200.0.0.10', 8080
     
-    def echo(message):
-        return message
+    def substract(a, *b):
+        return a - sum(list(b))
         
-    def summation(*args):
-        return sum(args)
+    def divide(a, b):
+        return a / b
 
-    def echo_concat(msg1, msg2, msg3, msg4):
-        return msg1 + msg2 + msg3 + msg4
+    def power_of(base , exp):
+        return pow(base, exp)
+
+    def n_root(base, n):
+        return pow(base, 1/n)
         
     server = Server((host, port))
-    server.add_method(echo)
-    server.add_method(summation, 'sum')
-    server.add_method(echo_concat)
+    server.add_method(substract)
+    server.add_method(divide)
+    server.add_method(power_of, "pow")
+    server.add_method(n_root, "nrt")
     server_thread = threading.Thread(target=server.serve)
     server_thread.daemon = True
     server_thread.start()
@@ -37,4 +40,4 @@ def test_server():
         sys.exit()
     
 if __name__ == "__main__":
-    test_server()
+    server()

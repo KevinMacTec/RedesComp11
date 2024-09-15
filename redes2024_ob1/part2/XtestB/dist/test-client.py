@@ -7,7 +7,7 @@ def test_client():
     print('=============================')
     print('Iniciando pruebas de casos sin errores.')
 
-    connS1 = connect('localhost', 8080)
+    connS1 = connect('200.0.0.10', 8080)
     value = 'Testing!'
     result = connS1.echo(value)
     assert result == value

@@ -57,7 +57,7 @@ class Client:
                     cant_open = 0
                     cant_close = 0
                     while True:
-                        packet = client.recv(1024).decode()
+                        packet = client.recv(4).decode()
                         cant_open += valid_count(packet, '{')
                         cant_close += valid_count(packet, '}')
                         res_in += packet
