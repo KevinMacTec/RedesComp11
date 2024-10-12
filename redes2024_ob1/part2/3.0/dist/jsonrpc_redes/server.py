@@ -1,7 +1,6 @@
 from socket import *
 import types
 import json
-from .utils import valid_count
 
 class Server:
     def __init__(self, tuple_host_port):
@@ -32,16 +31,16 @@ class Server:
                 conn.settimeout(10)
                 # Recibo hasta que todos los '{' abiertos se cierren con un '}'
                 req_in = ''
-                cant_open = 0
-                cant_close = 0
-                while True:
-                    packet = conn.recv(4).decode()
-                    cant_open += valid_count(packet, '{')
-                    cant_close += valid_count(packet, '}')
-                    req_in += packet
-                    print(req_in)
-                    if cant_open != 0 and cant_open == cant_close:
-                        break
+                carga_json = False
+                while not carga_json:
+                    try:
+                        packet = conn.recv(4).decode()
+                        req_in += packet
+                        json.loads(req_in)
+                        carga_json = True
+                    except ValueError as e:
+                        print(req_in)
+                        carga_json = False
                 # Una vez recibido todo el request lo paso al handler 
                 notif, rslt = self.__rpc_handler(req_in)
                 if not notif:

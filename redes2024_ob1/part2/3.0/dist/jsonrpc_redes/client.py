@@ -2,7 +2,6 @@
 from socket import *
 import json
 import uuid
-from .utils import valid_count
 
 class Client:
     def __init__(self, address, port):
@@ -52,17 +51,16 @@ class Client:
                 # Seteo timeout de respuesta
                 client.settimeout(10)
                 try:
-                    # Recibo hasta que todos los '{' abiertos se cierren con un '}'
                     res_in = ''
-                    cant_open = 0
-                    cant_close = 0
-                    while True:
-                        packet = client.recv(4).decode()
-                        cant_open += valid_count(packet, '{')
-                        cant_close += valid_count(packet, '}')
-                        res_in += packet
-                        if cant_open != 0 and cant_open == cant_close:
-                            break
+                    carga_json = False
+                    while not carga_json:
+                        try:
+                            packet = client.recv(4).decode()
+                            res_in += packet
+                            rslt = json.loads(res_in)
+                            carga_json = True
+                        except ValueError as e:
+                            carga_json = False
                 except socket.timeout as e:
                 # Manejo timeout de respuesta
                     error = Exception()
