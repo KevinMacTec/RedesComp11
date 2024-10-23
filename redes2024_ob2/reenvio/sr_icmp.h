@@ -20,7 +20,6 @@
 #define icmp_code_host_unreachable 1  /* Codigo ICMP host inalcanzable */
 #define icmp_code_port_unreachable 3  /* Codigo ICMP puerto inalcanzable */
 
-
 uint8_t *generate_icmp_packet(uint8_t type, uint8_t code, uint8_t* packet, struct sr_instance* sr, struct sr_if* interface);
 uint8_t *generate_icmp_packet_t3(uint8_t type, uint8_t code, uint8_t* packet, struct sr_instance* sr, struct sr_if* interface);
 

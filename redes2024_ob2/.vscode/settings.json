@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "sr_arpcache.h": "c",
+        "sr_protocol.h": "c"
+    }
+}
