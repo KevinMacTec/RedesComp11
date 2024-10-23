@@ -49,6 +49,18 @@ void sr_init(struct sr_instance* sr)
 
 } /* -- sr_init -- */
 
+struct sr_rt* lpm(struct sr_instance *sr, uint32_t dest_ip){
+  struct sr_rt* rt_iterator = sr->routing_table;
+  struct sr_rt* bpm = NULL; /* best prefix match */
+  while (rt_iterator != NULL){
+    if(((dest_ip & rt_iterator->mask.s_addr) == rt_iterator->dest.s_addr) && (bpm == NULL || rt_iterator->mask.s_addr > bpm->mask.s_addr)){
+        bpm = rt_iterator;
+    }
+    rt_iterator = rt_iterator->next;
+  }
+  return bpm;
+}
+
 /* Envía un paquete ICMP de error */
 void sr_send_icmp_error_packet(uint8_t type,
                               uint8_t code,
@@ -118,19 +130,6 @@ void sr_send_icmp_error_packet(uint8_t type,
    
 } /* -- sr_send_icmp_error_packet -- */
 
-struct sr_rt* lpm(struct sr_instance *sr, uint32_t dest_ip){
-  struct sr_rt* rt_iterator = sr->routing_table;
-  struct sr_rt* bpm = NULL; /* best prefix match */
-  while (rt_iterator != NULL){
-    if(((dest_ip & rt_iterator->mask.s_addr) == rt_iterator->dest.s_addr) && (bpm == NULL || rt_iterator->mask.s_addr > bpm->mask.s_addr)){
-        bpm = rt_iterator;
-    }
-    rt_iterator = rt_iterator->next;
-  }
-  return bpm;
-}
-
-
 void sr_handle_ip_packet(struct sr_instance *sr,
         uint8_t *packet,              
         unsigned int len,
@@ -149,6 +148,7 @@ void sr_handle_ip_packet(struct sr_instance *sr,
   * - Sino, verificar TTL, ARP y reenviar si corresponde (puede necesitar una solicitud ARP y esperar la respuesta)
   * - No olvide imprimir los mensajes de depuración
   */
+  printf("Entro a handlepacket");
 
   sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t *)(sizeof(sr_ethernet_hdr_t) + packet);
 
@@ -165,7 +165,7 @@ void sr_handle_ip_packet(struct sr_instance *sr,
 
       ip_hdr->ip_sum = cksum(ip_hdr, 4 * ip_hdr->ip_hl);
 
-      struct sr_rt* best_rt = lpm(sr, dest_ip);
+      struct sr_rt* best_rt = lpm(sr, ip_hdr->ip_dst);
 
       if (best_rt == NULL) {
           sr_send_icmp_error_packet(icmp_type_dest_unreachable, 0, sr, ip_hdr->ip_src, packet);
@@ -179,7 +179,7 @@ void sr_handle_ip_packet(struct sr_instance *sr,
 
       struct sr_if* out_interface = sr_get_interface(sr, best_rt->interface);
 
-      struct sr_arpentry *arp_entry = sr_arpcache_lookup(&(sr->cache), next_hop_ip);
+      struct sr_arpentry *arp_entry = sr_arpcache_lookup(&(sr->cache), nh_ip);
 
       if (arp_entry != NULL && arp_entry->valid) {
           printf("Entrada ARP encontrada, reenviando paquete\n");
@@ -198,8 +198,9 @@ void sr_handle_ip_packet(struct sr_instance *sr,
           printf("Solicitud ARP enviada\n");
       }      
   } else {
-      sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)((uint8_t *) sizeof(sr_ip_hdr_t) + ip_hdr);
-
+      /*sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)((uint8_t *) sizeof(sr_ip_hdr_t) + packet);*/
+      sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+      printf("Llega aca");
       if (ip_protocol((uint8_t *) ip_hdr) == ip_protocol_icmp && icmp_hdr->icmp_type == icmp_echo_request){
         printf("ICMP echo request recibido.\n");
         sr_send_icmp_echo_reply(sr, packet, len, interface_if->name);
@@ -207,8 +208,10 @@ void sr_handle_ip_packet(struct sr_instance *sr,
       } else { 
         printf("Paquete que no se sabe que es\n");
 				sr_send_icmp_error_packet(icmp_type_dest_unreachable, icmp_code_port_unreachable, sr, ip_hdr->ip_src, packet);
-        printf("enviando ICMP a puerto inalcanzable\n")
+        printf("enviando ICMP a puerto inalcanzable\n");
       }
+
+      printf("Salio de handlepacket");
   }
 
 
