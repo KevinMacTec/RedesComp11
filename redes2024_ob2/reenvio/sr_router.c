@@ -142,13 +142,30 @@ void sr_handle_ip_packet(struct sr_instance *sr,
   /* 
   * COLOQUE ASÍ SU CÓDIGO
   * SUGERENCIAS: 
-  * - Obtener el cabezal IP y direcciones 
+  *  
   * - Verificar si el paquete es para una de mis interfaces o si hay una coincidencia en mi tabla de enrutamiento 
   * - Si no es para una de mis interfaces y no hay coincidencia en la tabla de enrutamiento, enviar ICMP net unreachable
   * - Sino, si es para mí, verificar si es un paquete ICMP echo request y responder con un echo reply 
   * - Sino, verificar TTL, ARP y reenviar si corresponde (puede necesitar una solicitud ARP y esperar la respuesta)
   * - No olvide imprimir los mensajes de depuración
   */
+  print_hdrs(packet, len);
+  /* - Obtener el cabezal IP y direcciones */
+
+  /* Imprimo el cabezal IP */
+  printf("*** -> It is an IP packet. Print IP header.\n");
+  /* packet es un puntero a la posicion inicial del paquete en el buffer, debo indicar la posicion inicial de la
+    cabecera IP. La cabecera IP comienza inmediatamente despues que termina la cabecera Ethernet. */
+  print_hdr_ip(packet + sizeof(sr_ethernet_hdr_t));
+
+  /* Obtengo el cabezal IP */
+  sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t));
+
+  /* Obtengo las direcciones IP */
+  uint32_t sender_IP = ip_hdr->ip_src;
+  uint32_t target_IP = ip_hdr->ip_dst;
+
+  /* ... */
 
   sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t *)(sizeof(sr_ethernet_hdr_t) + packet);
 
