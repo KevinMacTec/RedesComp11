@@ -95,8 +95,9 @@ void sr_send_icmp_echo_reply(struct sr_instance *sr,
   sr_send_packet(sr, icmp_packet, icmp_len, target_interface_name);
   printf("****** -> ICMP echo reply sent.\n");
   /* Libero la memoria asociada REVISAR */
-  free(icmp_packet);
+  delete_icmp_packet(icmp_packet);
   printf("****** -> ICMP reply end.\n");
+
 } /* -- sr_send_icmp_echo_reply -- */
 
 /* Envía un paquete ICMP de error */
@@ -110,14 +111,22 @@ void sr_send_icmp_error_packet(uint8_t type,
   /* COLOQUE AQUÍ SU CÓDIGO*/
   printf("***** -> Construct ICMP error response.\n");
 
-/*   uint8_t eth_hdr = ((sr_ethernet_hdr_t*)(ipPacket))->ether_dhost;
+  /* Obtengo la interfaz a la que mandar el paquete a partir de la tabla de enrutamiento */
+  char *target_interface_name  = lpm(sr, ipDst)->interface;
+  printf("****** -> ICMP error response targets interface: ");
+  printf("%s\n", target_interface_name);
+  struct sr_if *target_interface = sr_get_interface(sr, target_interface_name);
 
-  struct sr_if* interface = sr_get_interface(sr, lpm(sr, ipDst)->interface);
-  uint8_t* icmp_packet = generate_icmp_packet_t3(type, code, ipPacket, sr, interface);
-  unsigned int icmp_len_t3 = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
-  sr_send_packet(sr, icmp_packet, icmp_len_t3, interface->name);
-
-  free(icmp_packet); */
+  /* Genero el paquete ICMP, calculo su tamanio y lo envio*/
+  uint8_t* icmp_t3_packet = generate_icmp_t3_packet(type, code, ipPacket, sr, target_interface);
+  unsigned int icmp_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+  printf("****** -> ICMP error response headers:\n");
+  print_hdrs(icmp_t3_packet, icmp_len);
+  sr_send_packet(sr, icmp_t3_packet, icmp_len, target_interface_name);
+  printf("****** -> ICMP error response sent.\n");
+  /* Libero la memoria asociada REVISAR */
+  delete_icmp_t3_packet(icmp_t3_packet);
+  printf("****** -> ICMP error response end.\n");
 
 } /* -- sr_send_icmp_error_packet -- */
 
@@ -140,6 +149,8 @@ void sr_handle_ip_packet(struct sr_instance *sr,
   /* packet es un puntero a la posicion inicial del paquete en el buffer, debo indicar la posicion inicial de la
     cabecera IP. La cabecera IP comienza inmediatamente despues que termina la cabecera Ethernet. */
   sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t));
+
+  /* La validacion de la sanidad del paquete ya viene hecha desde la funcion handle_packet (Ethernet e IP) */
   
   /* Imprimo el cabezal IP */
   printf("*** -> It is an IP packet. Print IP header.\n");
@@ -159,20 +170,31 @@ void sr_handle_ip_packet(struct sr_instance *sr,
     printf("Not found\n");
 
     printf("**** -> IP request is not for one of my interfaces.\n");
-    /* Verifico si hay una coincidencia en mi tabla de enrutamiento */
-    struct sr_rt* best_rt = lpm(sr, target_IP);
-    /* Si no hay coincidencia */
-    if (best_rt == NULL){
-      /* No es para una de mis interfaces y no hay coincidencia en la tabla de enrutamiento */
-      /* Responder con error: Tipo 3, Codigo 0 : Red no alcanzable */
-      printf("***** -> IP request is for unknown destiny.\n");
-      sr_send_icmp_error_packet(icmp_type_dest_unreachable, icmp_code_net_unreachable, sr, sender_IP, packet);
-    }
-    /* Si hay coincidencia */
-    else {
-      /* Verificar TTL, ARP y reenviar si corresponde (puede necesitar una solicitud ARP y esperar la respuesta) */
-    }
 
+    /* Decremento TTL y calculo checksum nuevamente */
+    ip_hdr->ip_ttl--;
+    ip_hdr->ip_sum = ip_cksum(ip_hdr, 4 * ip_hdr->ip_hl);
+
+    /* Si TTL > 0, proceso el paquete para un reenvio */
+    if (ip_hdr->ip_ttl > 0) {
+      /* Verifico si hay una coincidencia en mi tabla de enrutamiento */
+      struct sr_rt* best_rt = lpm(sr, target_IP);
+      /* Si no hay coincidencia */
+      if (best_rt == NULL){
+        /* No es para una de mis interfaces y no hay coincidencia en la tabla de enrutamiento */
+        /* Responder con error: Tipo 3, Codigo 0 : Red no alcanzable */
+        printf("***** -> IP request is for unknown destiny.\n");
+        sr_send_icmp_error_packet(icmp_type_dest_unreachable, icmp_code_net_unreachable, sr, sender_IP, packet);
+      }
+      /* Si hay coincidencia */
+      else {
+        /* Verificar ARP y reenviar si corresponde (puede necesitar una solicitud ARP y esperar la respuesta) */
+      }
+    }
+    /* Si TTL = 0, tengo que responder con ICMP Time Exceeded: Tipo 11, Codigo 0 */
+    else {
+      sr_send_icmp_error_packet(icmp_type_time_exceeded, 0, sr, sender_IP, packet);
+    }
   } 
   /* Si es para una de mis interfaces */
   else {
@@ -187,6 +209,8 @@ void sr_handle_ip_packet(struct sr_instance *sr,
 
       printf("***** -> It is an ICMP packet. Print ICMP header.\n");
       print_hdr_icmp( (u_int8_t*) icmp_hdr);
+
+      /* Verificar suma de comprobacion ICMP */
       
       /* Si es un echo request*/
       if (icmp_hdr->icmp_type ==  icmp_echo_request){

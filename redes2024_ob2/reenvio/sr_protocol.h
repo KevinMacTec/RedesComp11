@@ -99,6 +99,7 @@ struct sr_icmp_t3_hdr {
   uint16_t icmp_sum;
   uint16_t unused;
   uint16_t next_mtu;
+  /* Data icluye la cabecera IP del paquete enviado + los primeros 8 bytes del contenido */
   uint8_t data[ICMP_DATA_SIZE];
 
 } __attribute__ ((packed)) ;
