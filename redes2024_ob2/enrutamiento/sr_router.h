@@ -34,6 +34,8 @@
 struct sr_if;
 struct sr_rt;
 
+struct pwospf_subsys;
+
 /* ----------------------------------------------------------------------------
  * struct sr_instance
  *
@@ -54,6 +56,9 @@ struct sr_instance
     struct sr_arpcache cache;   /* ARP cache */
     pthread_attr_t attr;
     FILE* logfile;
+
+    /* -- pwospf subsystem -- */
+    struct pwospf_subsys* ospf_subsys;
 };
 
 /* -- sr_main.c -- */
