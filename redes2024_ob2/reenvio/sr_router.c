@@ -212,9 +212,12 @@ void sr_handle_ip_packet(struct sr_instance *sr,
           sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
           /* Sobreescribimos el paquete recibido, cambiando las direcciones MAC */
           memcpy(eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
-          memcpy(eth_hdr->ether_shost, target_interface->addr, ETHER_ADDR_LEN);
+          /* Para direccion origen obtengo la interfaz del resultado de la tabla de enrutamiento */
+          struct sr_if* if_source = sr_get_interface(sr, best_rt->interface);
+          memcpy(eth_hdr->ether_shost, if_source->addr, ETHER_ADDR_LEN);
           /* Envia el paquete Ethernet */
-          sr_send_packet(sr, packet, len, target_interface->name);
+          printf("***** -> Ethernet packet is ready to send.\n");
+          sr_send_packet(sr, packet, len, if_source->name);
           printf("***** -> Ethernet packet sent.\n");
           /* Libera la memoria del paquete (Es el mismo que se recibio en un principio) */
           free(arp_entry);
