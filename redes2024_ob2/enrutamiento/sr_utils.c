@@ -270,7 +270,8 @@ void print_hdr_ospf(uint8_t* buf) {
   print_addr_ip_int(ntohl(ospf_hdr->aid));
   fprintf(stderr, "\tchecksum: %d\n", ospf_hdr->csum);
   fprintf(stderr, "\tauthentication type: %d\n", ospf_hdr->autype);
-  fprintf(stderr, "\tauthentication data: %d\n", ospf_hdr->audata);
+  /* Actualizado */
+  fprintf(stderr, "\tauthentication data: %ld\n", ospf_hdr->audata);
 }
 
 /* Prints out all possible headers, starting from Ethernet */

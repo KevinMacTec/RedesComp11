@@ -220,8 +220,8 @@ uint8_t *generate_icmp_t3_packet(uint8_t type,                  /* Nº de tipo d
 }
 
 void delete_icmp_packet(uint8_t* icmp_packet){
-    uint8_t* icmp_data = icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
-    /* free(icmp_data); */
+  /* uint8_t* icmp_data = icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
+     free(icmp_data); */
     free(icmp_packet);
 }
 
@@ -298,8 +298,6 @@ void sr_handle_ip_packet(struct sr_instance *sr,
 
   /*
    * COLOQUE ASÍ SU CÓDIGO
-   * SUGERENCIAS:
-   * - No olvide imprimir los mensajes de depuración
    */
   print_hdrs(packet, len);
 
@@ -314,15 +312,17 @@ void sr_handle_ip_packet(struct sr_instance *sr,
   printf("*** -> It is an IP packet. Print IP header.\n");
   print_hdr_ip(packet + sizeof(sr_ethernet_hdr_t));
 
-  if (ip_hdr->ip_p == ip_protocol_ospfv2) { /* Llamar al manejador de paquetes PWOSPF */
-    /*
-    free(interface_if) habría que ver si fue asignado dinámicamente, para ver si es correcto eliminarlo o no
-    struct sr_if* interface_if = sr_get_interface(sr, interface);
-    */
+  /* Chequeo si mensaje corresponde a protocolo PWOSPF */
+  /* Si es mensaje PWOSPF */
+  if (ip_hdr->ip_p == ip_protocol_ospfv2) {
+   /* Tomo la interfaz que recibio el mensaje PWOSPF y llamo al manejador */
     struct sr_if *interface_if = sr_get_interface(sr, interface);
     sr_handle_pwospf_packet(sr, packet, len, interface_if);
-    
+    /*
+    free(interface_if) habría que ver si fue asignado dinámicamente, para ver si es correcto eliminarlo o no
+    */
   }
+  /* Si no es mensaje PWOSPF manejo reenvío de manera regular (parte 1) */
   else {
     /* Obtengo las direcciones IP */
     uint32_t sender_IP = ip_hdr->ip_src;
