@@ -836,7 +836,7 @@ void* sr_handle_pwospf_lsu_packet(void* arg)
     /* Flooding del LSU por todas las interfaces menos por donde me llegó */
     struct sr_if* iface = sr->if_list;
     while (iface) {
-        if (strcmp(iface->name, rx_if->name) != 0 && iface->neighbor_id != NEIGHBOR_ID_UNITIALIZED) {
+        if (strcmp(iface->name, rx_if->name) != 0 && iface->neighbor_id != 0) {
             
             /* Seteo MAC de origen */
             for (int i = 0; i < ETHER_ADDR_LEN; i++) {
@@ -874,7 +874,6 @@ void* sr_handle_pwospf_lsu_packet(void* arg)
 
 void sr_handle_pwospf_packet(struct sr_instance* sr, uint8_t* packet, unsigned int length, struct sr_if* rx_if)
 {
-    /*Nuevo. Si aún no terminó la inicialización, se descarta el paquete recibido */
     if (g_router_id.s_addr == 0) {
        return;
     }
@@ -899,7 +898,6 @@ void sr_handle_pwospf_packet(struct sr_instance* sr, uint8_t* packet, unsigned i
             }
             rx_lsu_param->length = length;
             rx_lsu_param->rx_if = rx_if;
-            /* Nuevo */
             pthread_attr_t attr;
             pthread_attr_init(&attr);
             pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
