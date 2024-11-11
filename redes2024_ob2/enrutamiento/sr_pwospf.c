@@ -219,6 +219,34 @@ void* pwospf_run_thread(void* arg)
  * *********************************************************************************/
 
 /*---------------------------------------------------------------------
+ * Method: print_neighbors
+ *
+ * Imprime la lista de vecinos del router
+ *
+ *---------------------------------------------------------------------*/
+void print_neighbors(struct sr_instance* sr)
+{
+    Debug("Neighbors list for router %s\n", inet_ntoa(g_router_id));
+    struct ospfv2_neighbor * ngbr = g_neighbors;
+    int i = 0;
+    while (ngbr != NULL) {
+        Debug("      [Neighbor ID = %s]\n", inet_ntoa(ngbr->neighbor_id));
+        Debug("         [State = %d]\n", ngbr->alive);    
+        struct sr_if* iface = sr->if_list;
+            while (iface != NULL) {
+                if (iface->neighbor_id == ngbr->neighbor_id.s_addr){
+                    Debug("         [On interface = %s]\n", iface->name);    
+                }         
+                /* Paso a la siguiente interfaz */
+                iface = iface->next;       
+            }
+        i ++;
+        ngbr = ngbr->next;
+    }
+    Debug("Neighbor count = %d]\n", i);
+}
+
+/*---------------------------------------------------------------------
  * Method: check_neighbors_life
  *
  * Chequea si los vecinos están vivos
@@ -254,6 +282,9 @@ void* check_neighbors_life(void* arg)
                     /* Seteo en 0 IP e Id */
                     iface->neighbor_id = 0;
                     iface->neighbor_ip = 0;
+
+                    /* Veo los vecinos */
+                    print_neighbors(sr);
                 }         
                 /* Paso a la siguiente interfaz */
                 iface = iface->next;       
@@ -443,7 +474,7 @@ void* send_hello_packet(void* arg)
     sr_send_packet(hello_param->sr, packet, packet_len, iface->name);
 
     /* Imprimo información del paquete HELLO enviado */
-    Debug("-> PWOSPF: Sending HELLO Packet of length = %d, out of the interface: %s\n", packet_len, hello_param->interface->name);
+ /*    Debug("-> PWOSPF: Sending HELLO Packet of length = %d, out of the interface: %s\n", packet_len, hello_param->interface->name);
     Debug("      [Router ID = %s]\n", inet_ntoa(g_router_id));
     struct in_addr router_ip;
     router_ip.s_addr = ip_hdr->ip_src;
@@ -453,7 +484,7 @@ void* send_hello_packet(void* arg)
     Debug("      [Network Mask = %s]\n", inet_ntoa(net_mask));
 
     Debug("-> PWOSPF: HELLO Packet sent on interface: %s\n", iface->name);
-    free(packet);
+  */   free(packet);
     /* Antes de llamar al hilo de esta funcion cree memoria dinamica para el parametro */
     free(hello_param);
 
@@ -579,11 +610,11 @@ void sr_handle_pwospf_hello_packet(struct sr_instance* sr, uint8_t* packet, unsi
     struct in_addr net_mask;
     net_mask.s_addr = hello_hdr->nmask;
     /* Imprimo info del paquete recibido*/
-    Debug("-> PWOSPF: Detecting PWOSPF HELLO Packet from:\n");
+ /*    Debug("-> PWOSPF: Detecting PWOSPF HELLO Packet from:\n");
     Debug("      [Neighbor ID = %s]\n", inet_ntoa(neighbor_id));
     Debug("      [Neighbor IP = %s]\n", inet_ntoa(neighbor_ip));
     Debug("      [Network Mask = %s]\n", inet_ntoa(net_mask));
-
+ */
     /* Chequeo checksum */
     if (ospfv2_cksum(pwospf_hdr, sizeof(ospfv2_hdr_t)) == pwospf_hdr->csum) {
         Debug("-> PWOSPF: HELLO Packet dropped, invalid checksum\n");
@@ -630,6 +661,9 @@ void sr_handle_pwospf_hello_packet(struct sr_instance* sr, uint8_t* packet, unsi
         iface = iface->next;
     } 
 
+   /* Veo los vecinos */
+    print_neighbors(sr);
+     
 } /* -- sr_handle_pwospf_hello_packet -- */
 
 
