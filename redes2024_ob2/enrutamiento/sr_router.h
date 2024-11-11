@@ -100,4 +100,6 @@ uint8_t *generate_icmp_t3_packet(uint8_t type, uint8_t code, uint8_t* packet, st
 void delete_icmp_packet(uint8_t* icmp_packet);
 void delete_icmp_t3_packet(uint8_t* icmp_t3_packet);
 
+void sr_handle_arp(struct sr_instance *sr, uint8_t *packet, unsigned int len, uint32_t next_hop_ip, char* interface);
+
 #endif /* SR_ROUTER_H */

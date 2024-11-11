@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "sr_icmp.h": "c"
+        "sr_icmp.h": "c",
+        "sr_rt.h": "c"
     }
 }

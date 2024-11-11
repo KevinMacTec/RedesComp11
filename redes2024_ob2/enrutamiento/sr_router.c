@@ -197,7 +197,7 @@ uint8_t *generate_icmp_t3_packet(uint8_t type,                  /* Nº de tipo d
     new_ip_hdr->ip_dst = dest_ip;
     new_ip_hdr->ip_id = htons(ip_id_counter++);
     new_ip_hdr->ip_off = 0;
-    /* Segun chatGPT cksum ya devuelve el resultado en network byte order */
+    /* Asumimos que ya devuelve el resultado en network byte order */
     new_ip_hdr->ip_sum = ip_cksum(new_ip_hdr, 4 * new_ip_hdr->ip_hl);
 
     /* Creo el cabezal ICMP */
@@ -217,16 +217,6 @@ uint8_t *generate_icmp_t3_packet(uint8_t type,                  /* Nº de tipo d
     new_icmp_t3_hdr->icmp_sum = icmp3_cksum(new_icmp_t3_hdr, sizeof(sr_icmp_t3_hdr_t));
     
     return packet_icmp;
-}
-
-void delete_icmp_packet(uint8_t* icmp_packet){
-  /* uint8_t* icmp_data = icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
-     free(icmp_data); */
-    free(icmp_packet);
-}
-
-void delete_icmp_t3_packet(uint8_t* icmp_t3_packet){
-    free(icmp_t3_packet);
 }
 
 /* Envía un paquete ICMP de respuesta echo */
@@ -252,7 +242,7 @@ void sr_send_icmp_echo_reply(struct sr_instance *sr,
   sr_send_packet(sr, icmp_packet, icmp_len, target_interface_name);
   printf("****** -> ICMP echo reply sent.\n");
   /* Libero la memoria asociada REVISAR */
-  delete_icmp_packet(icmp_packet);
+  free(icmp_packet);
   printf("****** -> ICMP reply end.\n");
 
 } /* -- sr_send_icmp_echo_reply -- */
@@ -269,20 +259,45 @@ void sr_send_icmp_error_packet(uint8_t type,
   printf("***** -> Construct ICMP error response.\n");
 
   /* Obtengo la interfaz a la que mandar el paquete a partir de la tabla de enrutamiento */
-  char *target_interface_name = lpm(sr, ipDst)->interface;
+  struct sr_rt* best_rt = lpm(sr, ipDst);
   printf("****** -> ICMP error response targets interface: ");
-  printf("%s\n", target_interface_name);
-  struct sr_if *target_interface = sr_get_interface(sr, target_interface_name);
+  printf("%s\n", best_rt->interface);
+  struct sr_if *target_interface = sr_get_interface(sr, best_rt->interface);
 
   /* Genero el paquete ICMP, calculo su tamanio y lo envio*/
-  uint8_t *icmp_t3_packet = generate_icmp_t3_packet(type, code, ipPacket, sr, target_interface);
-  unsigned int icmp_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+  uint8_t *packet = generate_icmp_t3_packet(type, code, ipPacket, sr, target_interface);
+  unsigned int len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
   printf("****** -> ICMP error response headers:\n");
-  print_hdrs(icmp_t3_packet, icmp_len);
-  sr_send_packet(sr, icmp_t3_packet, icmp_len, target_interface_name);
+  print_hdrs(packet, len);
+
+  uint32_t next_hop_ip = best_rt->gw.s_addr;
+  if(best_rt->gw.s_addr == 0){
+    next_hop_ip = ipDst;
+  }
+
+  /* Verificar la caché ARP */
+  struct sr_arpentry *sr_arp_entry = sr_arpcache_lookup(&(sr->cache), next_hop_ip);
+
+  if (sr_arp_entry != NULL && sr_arp_entry->valid) {
+      sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
+
+      memcpy(eth_hdr->ether_dhost, sr_arp_entry->mac, ETHER_ADDR_LEN);
+      memcpy(eth_hdr->ether_shost, out_interface->addr, ETHER_ADDR_LEN);
+
+      print_hdr_eth(packet);
+      print_hdr_ip(packet + sizeof(sr_ethernet_hdr_t));
+
+      sr_send_packet(sr, packet, len, best_rt->interface);
+
+      free(sr_arp_entry);
+  } else {
+      printf("No se encontró entrada ARP, enviando solicitud ARP\n");
+      sr_arpcache_queuereq(&(sr->cache), next_hop_ip, packet, len, target_interface);
+  }
+
   printf("****** -> ICMP error response sent.\n");
   /* Libero la memoria asociada REVISAR */
-  delete_icmp_t3_packet(icmp_t3_packet);
+  free(packet);
   printf("****** -> ICMP error response end.\n");
 
 } /* -- sr_send_icmp_error_packet -- */
@@ -318,9 +333,6 @@ void sr_handle_ip_packet(struct sr_instance *sr,
    /* Tomo la interfaz que recibio el mensaje PWOSPF y llamo al manejador */
     struct sr_if *interface_if = sr_get_interface(sr, interface);
     sr_handle_pwospf_packet(sr, packet, len, interface_if);
-    /*
-    free(interface_if) habría que ver si fue asignado dinámicamente, para ver si es correcto eliminarlo o no
-    */
   }
   /* Si no es mensaje PWOSPF manejo reenvío de manera regular (parte 1) */
   else {
@@ -332,9 +344,7 @@ void sr_handle_ip_packet(struct sr_instance *sr,
     struct sr_if *target_interface = sr_get_interface_given_ip(sr, target_IP);
     printf("*** -> IP request targets interface: ");
 
-    /* Si no es para una de mis interfaces (sr_get_interface_given_ip retorna 0 porque no encontro la interfaz
-      en la lista de interfaces del router) */
-    if (target_interface == 0)
+    if (target_interface == NULL)
     {
       printf("Not found\n");
 
@@ -342,6 +352,7 @@ void sr_handle_ip_packet(struct sr_instance *sr,
 
       /* Decremento TTL y calculo checksum nuevamente */
       ip_hdr->ip_ttl--;
+      ip_hdr->ip_sum = 0;
       ip_hdr->ip_sum = ip_cksum(ip_hdr, 4 * ip_hdr->ip_hl);
 
       /* Si TTL > 0, proceso el paquete para un reenvio */
@@ -364,35 +375,26 @@ void sr_handle_ip_packet(struct sr_instance *sr,
           /* Obtengo la IP del proximo salto (gate away) de la tabla de enrutamiento */
           uint32_t next_hop_ip = best_rt->gw.s_addr;
 
-          /* Busca en la ARP cache si ya hay una direccion MAC para la IP del proximo salto */
-          struct sr_arpentry *arp_entry = sr_arpcache_lookup(&(sr->cache), next_hop_ip);
+          /* Verificar la caché ARP */
+          struct sr_arpentry *sr_arp_entry = sr_arpcache_lookup(&(sr->cache), next_hop_ip);
 
-          /* Si la entrada no es nula y es valida, reenvio el paquete */
-          if (arp_entry != NULL && arp_entry->valid)
-          {
-            printf("***** -> Next hop IP is in ARP cache.\n");
-            /* Armo la cabecera Ethernet (la cabecera IP se mantiene igual) */
-            sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
-            /* Sobreescribimos el paquete recibido, cambiando las direcciones MAC */
-            memcpy(eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
-            /* Para direccion origen obtengo la interfaz del resultado de la tabla de enrutamiento */
-            struct sr_if* if_source = sr_get_interface(sr, best_rt->interface);
-            memcpy(eth_hdr->ether_shost, if_source->addr, ETHER_ADDR_LEN);
-            /* Envia el paquete Ethernet */
-            printf("***** -> Ethernet packet is ready to send.\n");
-            sr_send_packet(sr, packet, len, if_source->name);
-            printf("***** -> Ethernet packet sent.\n");
-            /* Libera la memoria del paquete (Es el mismo que se recibio en un principio) */
-            free(arp_entry);
+          if (sr_arp_entry != NULL && sr_arp_entry->valid) {
+              sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
+
+              memcpy(eth_hdr->ether_dhost, sr_arp_entry->mac, ETHER_ADDR_LEN);
+              memcpy(eth_hdr->ether_shost, out_interface->addr, ETHER_ADDR_LEN);
+
+              print_hdr_eth(packet);
+              print_hdr_ip(packet + sizeof(sr_ethernet_hdr_t));
+
+              sr_send_packet(sr, packet, len, best_rt->interface);
+
+              free(sr_arp_entry);
+          } else {
+              printf("No se encontró entrada ARP, enviando solicitud ARP\n");
+              sr_arpcache_queuereq(&(sr->cache), next_hop_ip, packet, len, target_interface);
           }
-          /* Si no se encontro una entrada para la IP del proximo salto en la cache ARP */
-          else
-          {
-            printf("***** -> Next hop IP is not in ARP cache.\n");
-            struct sr_arpreq *req = sr_arpcache_queuereq(&(sr->cache), next_hop_ip, packet, len, best_rt->interface);
-            printf("***** -> Handle ARP request.\n");
-            handle_arpreq(sr, req);
-          }
+          
         }
       }
       /* Si TTL = 0, tengo que responder con ICMP Time Exceeded: Tipo 11, Codigo 0 */
@@ -423,21 +425,22 @@ void sr_handle_ip_packet(struct sr_instance *sr,
         if (icmp_hdr->icmp_type == icmp_echo_request)
         {
           printf("****** -> It is an ICMP echo request.\n");
-          /* Responder con un echo reply : Tipo 0, Codigo 0*/
           sr_send_icmp_echo_reply(sr, sender_IP, packet);
         }
         /* Si no es un echo request */
         else
         {
-          /* Responder con error: Tipo 3, Codigo ?. QUE ERROR SE ENVIA EN ESTE CASO */
-          sr_send_icmp_error_packet(icmp_type_dest_unreachable, -1, sr, sender_IP, packet);
+          /* Responder con error: Tipo 3, Codigo 3*/
+          printf("****** -> It is an ICMP, but not an echo request.\n");
+          sr_send_icmp_error_packet(icmp_type_dest_unreachable, icmp_code_port_unreachable, sr, sender_IP, packet + sizeof(sr_ethernet_hdr_t));
         }
       }
       /* Si no es un paquete ICMP (supongo que es TCP o UDP) */
       else
       {
         /* Responder con error: Tipo 3, Codigo 3 : Puerto no alcanzable */
-        sr_send_icmp_error_packet(icmp_type_dest_unreachable, icmp_code_host_unreachable, sr, sender_IP, packet);
+        printf("****** -> It isn't an ICMP packet.\n");
+        sr_send_icmp_error_packet(icmp_type_dest_unreachable, icmp_code_port_unreachable, sr, sender_IP, packet + sizeof(sr_ethernet_hdr_t));
       }
     }
   }
