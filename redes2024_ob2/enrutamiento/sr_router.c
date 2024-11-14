@@ -138,7 +138,7 @@ uint8_t *generate_icmp_packet(uint8_t type,                  /* Nº de tipo de m
     new_ip_hdr->ip_dst = dest_ip;
     new_ip_hdr->ip_id = htons(ip_id_counter++);
     new_ip_hdr->ip_off = 0;
-    /* Segun chatGPT cksum ya devuelve el resultado en network byte order */
+    /* Asumimos que cksum ya devuelve el resultado en network byte order */
     new_ip_hdr->ip_sum = ip_cksum(new_ip_hdr, 4 * new_ip_hdr->ip_hl);
 
     sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)( packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
@@ -197,7 +197,7 @@ uint8_t *generate_icmp_t3_packet(uint8_t type,                  /* Nº de tipo d
     new_ip_hdr->ip_dst = dest_ip;
     new_ip_hdr->ip_id = htons(ip_id_counter++);
     new_ip_hdr->ip_off = 0;
-    /* Segun chatGPT cksum ya devuelve el resultado en network byte order */
+    /* Asumimos que cksum ya devuelve el resultado en network byte order */
     new_ip_hdr->ip_sum = ip_cksum(new_ip_hdr, 4 * new_ip_hdr->ip_hl);
 
     /* Creo el cabezal ICMP */
@@ -217,16 +217,6 @@ uint8_t *generate_icmp_t3_packet(uint8_t type,                  /* Nº de tipo d
     new_icmp_t3_hdr->icmp_sum = icmp3_cksum(new_icmp_t3_hdr, sizeof(sr_icmp_t3_hdr_t));
     
     return packet_icmp;
-}
-
-void delete_icmp_packet(uint8_t* icmp_packet){
-  /* uint8_t* icmp_data = icmp_packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_hdr_t);
-     free(icmp_data); */
-    free(icmp_packet);
-}
-
-void delete_icmp_t3_packet(uint8_t* icmp_t3_packet){
-    free(icmp_t3_packet);
 }
 
 /* Envía un paquete ICMP de respuesta echo */
@@ -251,8 +241,8 @@ void sr_send_icmp_echo_reply(struct sr_instance *sr,
   print_hdrs(icmp_packet, icmp_len);
   sr_send_packet(sr, icmp_packet, icmp_len, target_interface_name);
   printf("****** -> ICMP echo reply sent.\n");
-  /* Libero la memoria asociada REVISAR */
-  delete_icmp_packet(icmp_packet);
+  /* Libero la memoria asociada REVISAR POR EL DATA */
+  free(icmp_packet);
   printf("****** -> ICMP reply end.\n");
 
 } /* -- sr_send_icmp_echo_reply -- */
@@ -278,11 +268,37 @@ void sr_send_icmp_error_packet(uint8_t type,
   uint8_t *icmp_t3_packet = generate_icmp_t3_packet(type, code, ipPacket, sr, target_interface);
   unsigned int icmp_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
   printf("****** -> ICMP error response headers:\n");
+
+  /* Opcion Actual */
   print_hdrs(icmp_t3_packet, icmp_len);
   sr_send_packet(sr, icmp_t3_packet, icmp_len, target_interface_name);
+
+  /* Otra Opcion */
+  /* Creo que no necesitamos porque es una respuesta. Ya sabemos la direccion MAC (la que envio) */
+  /* Pero podria ocurrir que ya no este el que envio? */
+  /* print_hdrs(packet, len);
+  uint32_t next_hop_ip = best_rt->gw.s_addr;
+  if(best_rt->gw.s_addr == 0){
+    next_hop_ip = ipDst;
+  }
+  
+  struct sr_arpentry *sr_arp_entry = sr_arpcache_lookup(&(sr->cache), next_hop_ip);
+  if (sr_arp_entry != NULL && sr_arp_entry->valid) {
+      sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
+      memcpy(eth_hdr->ether_dhost, sr_arp_entry->mac, ETHER_ADDR_LEN);
+      memcpy(eth_hdr->ether_shost, out_interface->addr, ETHER_ADDR_LEN);
+      print_hdr_eth(packet);
+      print_hdr_ip(packet + sizeof(sr_ethernet_hdr_t));
+      sr_send_packet(sr, packet, len, best_rt->interface);
+      free(sr_arp_entry);
+  } else {
+      printf("No se encontró entrada ARP, enviando solicitud ARP\n");
+      sr_arpcache_queuereq(&(sr->cache), next_hop_ip, packet, len, target_interface);
+  } */
+
   printf("****** -> ICMP error response sent.\n");
   /* Libero la memoria asociada REVISAR */
-  delete_icmp_t3_packet(icmp_t3_packet);
+  free(icmp_t3_packet);
   printf("****** -> ICMP error response end.\n");
 
 } /* -- sr_send_icmp_error_packet -- */
@@ -361,8 +377,13 @@ void sr_handle_ip_packet(struct sr_instance *sr,
         else
         {
           /* Verificar ARP y reenviar si corresponde (puede necesitar una solicitud ARP y esperar la respuesta) */
-          /* Obtengo la IP del proximo salto (gate away) de la tabla de enrutamiento */
+          /* Obtengo la IP del proximo salto (gateway) de la tabla de enrutamiento */
           uint32_t next_hop_ip = best_rt->gw.s_addr;
+
+          /* Si next_hop_ip es 0.0.0.0 entonces es la IP directamente conectada a la interfaz. Salto final */
+          if (next_hop_ip == 0){
+            next_hop_ip = ip_hdr->ip_dst;
+          }
 
           /* Busca en la ARP cache si ya hay una direccion MAC para la IP del proximo salto */
           struct sr_arpentry *arp_entry = sr_arpcache_lookup(&(sr->cache), next_hop_ip);
