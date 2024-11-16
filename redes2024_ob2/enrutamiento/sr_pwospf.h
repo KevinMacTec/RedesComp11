@@ -52,5 +52,7 @@ void sr_handle_pwospf_hello_packet(struct sr_instance*, uint8_t*, unsigned int, 
 void* sr_handle_pwospf_lsu_packet(void*);
 void sr_handle_pwospf_packet(struct sr_instance*, uint8_t*, unsigned int, struct sr_if*);
 
+void pwospf_lock(struct pwospf_subsys* subsys);
+void pwospf_unlock(struct pwospf_subsys* subsys);
 
 #endif /* SR_PWOSPF_H */

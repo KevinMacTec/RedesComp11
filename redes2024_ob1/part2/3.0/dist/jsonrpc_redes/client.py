@@ -55,7 +55,7 @@ class Client:
                     carga_json = False
                     while not carga_json:
                         try:
-                            packet = client.recv(4).decode()
+                            packet = client.recv(1024).decode()
                             res_in += packet
                             rslt = json.loads(res_in)
                             carga_json = True

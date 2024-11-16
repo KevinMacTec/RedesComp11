@@ -34,10 +34,12 @@ class Server:
                 carga_json = False
                 while not carga_json:
                     try:
-                        packet = conn.recv(4).decode()
+                        packet = conn.recv(1024).decode()
                         req_in += packet
                         json.loads(req_in)
                         carga_json = True
+
+                        print(packet)
                     except ValueError as e:
                         print(req_in)
                         carga_json = False

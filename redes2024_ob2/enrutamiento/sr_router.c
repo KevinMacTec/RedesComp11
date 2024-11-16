@@ -67,6 +67,8 @@ void sr_init(struct sr_instance* sr)
   mas larga para la IP de destino */
 struct sr_rt *lpm(struct sr_instance *sr, uint32_t dest_ip)
 {
+  pwospf_lock(sr->ospf_subsys);
+
   /* Tomo el puntero a la tabla de enrutamiento de la instancia del router */
   struct sr_rt *rt_iterator = sr->routing_table;
   /* Inicializo Best Prefix Match (bpm), que sera el que vaya almacenando el prefijo mas largo encontrado hasta el momento */
@@ -86,6 +88,8 @@ struct sr_rt *lpm(struct sr_instance *sr, uint32_t dest_ip)
     /* Avanzo en el iterador */
     rt_iterator = rt_iterator->next;
   }
+  pwospf_unlock(sr->ospf_subsys);
+
   return bpm;
 }
 
