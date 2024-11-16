@@ -124,7 +124,7 @@ uint8_t *generate_icmp_packet(uint8_t type,                  /* Nº de tipo de m
     new_ip_hdr->ip_dst = dest_ip;
     new_ip_hdr->ip_id = htons(ip_id_counter++);
     new_ip_hdr->ip_off = 0;
-    /* Segun chatGPT cksum ya devuelve el resultado en network byte order */
+    /* Segun la documentación cksum ya devuelve el resultado en network byte order */
     new_ip_hdr->ip_sum = ip_cksum(new_ip_hdr, 4 * new_ip_hdr->ip_hl);
 
     sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)( packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
@@ -183,7 +183,7 @@ uint8_t *generate_icmp_t3_packet(uint8_t type,                  /* Nº de tipo d
     new_ip_hdr->ip_dst = dest_ip;
     new_ip_hdr->ip_id = htons(ip_id_counter++);
     new_ip_hdr->ip_off = 0;
-    /* Segun chatGPT cksum ya devuelve el resultado en network byte order */
+    /* Segun la documentación cksum ya devuelve el resultado en network byte order */
     new_ip_hdr->ip_sum = ip_cksum(new_ip_hdr, 4 * new_ip_hdr->ip_hl);
 
     /* Creo el cabezal ICMP */
