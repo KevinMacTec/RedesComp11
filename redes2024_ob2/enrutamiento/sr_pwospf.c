@@ -779,10 +779,10 @@ void* sr_handle_pwospf_lsu_packet(void* arg)
     unsigned int length = rx_lsu_param->length;
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
     struct ospfv2_hdr* ospf_hdr = (struct ospfv2_hdr*)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-    struct in_addr addr_ip;
+    /* struct in_addr addr_ip;
     addr_ip.s_addr = ip_hdr->ip_src;
     struct in_addr addr_id;
-    addr_id.s_addr = ospf_hdr->rid;
+    addr_id.s_addr = ospf_hdr->rid; */
 
     /* Imprimo info del paquete recibido*/
     /* Debug("-> PWOSPF: Detecting LSU Packet from [Neighbor ID = %s, IP = %s]\n", inet_ntoa(addr_id), inet_ntoa(addr_ip)); */

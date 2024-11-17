@@ -369,6 +369,8 @@ void sr_handle_ip_packet(struct sr_instance *sr,
       {
         /* Verifico si hay una coincidencia en mi tabla de enrutamiento */
         struct sr_rt *best_rt = lpm(sr, target_IP);
+        /* Hago lock para usar la entrada de la Routing table */
+        pwospf_lock(sr->ospf_subsys);
         /* Si no hay coincidencia */
         if (best_rt == NULL)
         {
@@ -419,6 +421,7 @@ void sr_handle_ip_packet(struct sr_instance *sr,
             handle_arpreq(sr, req);
           }
         }
+        pwospf_unlock(sr->ospf_subsys);
       }
       /* Si TTL = 0, tengo que responder con ICMP Time Exceeded: Tipo 11, Codigo 0 */
       else
